@@ -1,0 +1,249 @@
+{
+  "version": "0.1.0",
+  "updated": "2026-10-19",
+  "description": "heihua-lab 种子词库: 已知黑话的先验知识。流水线用它在语料中做确认匹配, 复核后的新词也写回这里。",
+  "entries": [
+    {
+      "term": "赋能", "aliases": ["赋个能", "赋能一下"], "form": "旧词新义",
+      "domain": "职场/互联网", "register": "正式偏黑话", "timeliness": "2015至今",
+      "sense_literal": "赋予能力(管理学本义)", "sense_slang": "泛指一切包装加持动作, 常无实指",
+      "note": "职场空转高频词", "example": "这个方案需要市场部赋能一下。"
+    },
+    {
+      "term": "抓手", "aliases": [], "form": "旧词新义",
+      "domain": "职场/互联网", "register": "正式偏黑话", "timeliness": "2018至今",
+      "sense_literal": "着力点(本义)", "sense_slang": "可执行的切入点, 常被泛化为要做的事",
+      "note": "", "example": "找个抓手把项目闭环。"
+    },
+    {
+      "term": "闭环", "aliases": ["跑通闭环"], "form": "旧词新义",
+      "domain": "职场/互联网", "register": "正式偏黑话", "timeliness": "2016至今",
+      "sense_literal": "封闭环路(控制论)", "sense_slang": "把事从头做到尾, 形成完整流程",
+      "note": "", "example": "先跑通一个小闭环。"
+    },
+    {
+      "term": "颗粒度", "aliases": [], "form": "旧词新义",
+      "domain": "职场/互联网", "register": "正式偏黑话", "timeliness": "2017至今",
+      "sense_literal": "物质颗粒大小", "sense_slang": "细节与精细程度",
+      "note": "", "example": "方案颗粒度太粗。"
+    },
+    {
+      "term": "对齐", "aliases": ["对齐一下"], "form": "旧词新义",
+      "domain": "职场/互联网", "register": "正式偏黑话", "timeliness": "2015至今",
+      "sense_literal": "位置或标准对齐", "sense_slang": "沟通后达成一致(动作)",
+      "note": "机械/排版语境仍是本义", "example": "先对齐一下目标。"
+    },
+    {
+      "term": "复盘", "aliases": [], "form": "旧词新义",
+      "domain": "职场/互联网", "register": "正式偏黑话", "timeliness": "2014至今",
+      "sense_literal": "围棋术语: 对局重演", "sense_slang": "事后回顾总结",
+      "note": "", "example": "活动结束做个复盘。"
+    },
+    {
+      "term": "打法", "aliases": [], "form": "旧词新义",
+      "domain": "职场/互联网", "register": "正式偏黑话", "timeliness": "2018至今",
+      "sense_literal": "体育武术中的打法", "sense_slang": "策略与方法论",
+      "note": "", "example": "这套打法在下沉市场有效。"
+    },
+    {
+      "term": "心智", "aliases": ["占领心智"], "form": "旧词新义",
+      "domain": "市场营销", "register": "正式偏黑话", "timeliness": "2016至今",
+      "sense_literal": "心理认知能力", "sense_slang": "用户心中的品牌认知占位",
+      "note": "", "example": "占领用户心智。"
+    },
+    {
+      "term": "私域", "aliases": ["私域流量"], "form": "新造词",
+      "domain": "市场营销", "register": "行业术语", "timeliness": "2019至今",
+      "sense_literal": "私有领域", "sense_slang": "可反复触达的自有流量池",
+      "note": "", "example": "把用户沉淀到私域。"
+    },
+    {
+      "term": "下沉", "aliases": ["市场下沉"], "form": "旧词新义",
+      "domain": "市场营销", "register": "行业术语", "timeliness": "2018至今",
+      "sense_literal": "向下沉降(物理)", "sense_slang": "开拓低线市场",
+      "note": "物理/工业语境仍是本义", "example": "业务要下沉到县城。"
+    },
+    {
+      "term": "破圈", "aliases": [], "form": "新造词",
+      "domain": "市场营销/网络", "register": "网络/行业", "timeliness": "2019至今",
+      "sense_literal": "打破圈层", "sense_slang": "从小众进入大众视野",
+      "note": "", "example": "这次联动帮品牌破圈了。"
+    },
+    {
+      "term": "yyds", "aliases": ["永远的神"], "form": "缩写",
+      "domain": "网络", "register": "网络口语", "timeliness": "2021至今",
+      "sense_literal": "永远的神 拼音首字母", "sense_slang": "表示最强太神了",
+      "note": "", "example": "这作画 yyds。"
+    },
+    {
+      "term": "xswl", "aliases": [], "form": "缩写",
+      "domain": "网络", "register": "网络口语", "timeliness": "2019至今",
+      "sense_literal": "笑死我了 拼音首字母", "sense_slang": "笑死我了, 可爆笑也可嘲讽",
+      "note": "", "example": "看他翻车 xswl。"
+    },
+    {
+      "term": "u1s1", "aliases": ["有一说一"], "form": "混合",
+      "domain": "网络", "register": "网络口语", "timeliness": "2020至今",
+      "sense_literal": "有一说一 的数字谐音拼写", "sense_slang": "引出客观评价",
+      "note": "", "example": "u1s1, 味道一般。"
+    },
+    {
+      "term": "nsdd", "aliases": [], "form": "缩写",
+      "domain": "网络", "register": "网络口语", "timeliness": "2020至今",
+      "sense_literal": "你说得对 拼音首字母", "sense_slang": "表示附议",
+      "note": "", "example": "nsdd, 楼主说得在理。"
+    },
+    {
+      "term": "栓Q", "aliases": ["栓Q侠"], "form": "谐音",
+      "domain": "网络", "register": "网络口语", "timeliness": "2022至今",
+      "sense_literal": "thank you 音译", "sense_slang": "谢谢, 也用于吐槽式道谢",
+      "note": "", "example": "栓Q, 血压已经高了。"
+    },
+    {
+      "term": "尊嘟假嘟", "aliases": [], "form": "谐音",
+      "domain": "网络", "register": "卖萌口吻", "timeliness": "2022至今",
+      "sense_literal": "真的假的 谐音", "sense_slang": "真的假的(装可爱语气)",
+      "note": "", "example": "尊嘟假嘟? 他要退圈了?"
+    },
+    {
+      "term": "芭比Q", "aliases": [" BBQ"], "form": "谐音/引申",
+      "domain": "网络", "register": "网络口语", "timeliness": "2021至今",
+      "sense_literal": "barbecue 音译", "sense_slang": "完蛋了, 调侃厄运",
+      "note": "", "example": "电脑蓝屏, 芭比Q了。"
+    },
+    {
+      "term": "特种兵旅游", "aliases": ["特种兵式"], "form": "比喻",
+      "domain": "网络", "register": "网络口语", "timeliness": "2023至今",
+      "sense_literal": "军人拉练", "sense_slang": "极限打卡式旅游或备考",
+      "note": "", "example": "特种兵旅游一天八个景点。"
+    },
+    {
+      "term": "电子榨菜", "aliases": [], "form": "比喻",
+      "domain": "网络", "register": "网络口语", "timeliness": "2022至今",
+      "sense_literal": "下饭咸菜", "sense_slang": "吃饭时看的下饭视频",
+      "note": "", "example": "这部剧是我的电子榨菜。"
+    },
+    {
+      "term": "i人", "aliases": [], "form": "混合",
+      "domain": "网络", "register": "自称/他称", "timeliness": "2022至今",
+      "sense_literal": "introvert 首字母+人", "sense_slang": "内向社恐者",
+      "note": "", "example": "作为i人我瑟瑟发抖。"
+    },
+    {
+      "term": "e人", "aliases": [], "form": "混合",
+      "domain": "网络", "register": "自称/他称", "timeliness": "2022至今",
+      "sense_literal": "extrovert 首字母+人", "sense_slang": "外向社牛",
+      "note": "", "example": "e人朋友如鱼得水。"
+    },
+    {
+      "term": "内卷", "aliases": ["卷"], "form": "旧词新义",
+      "domain": "社会/网络", "register": "公共讨论", "timeliness": "2020至今",
+      "sense_literal": "向内演化(人类学术语)", "sense_slang": "同层恶性竞争无意义加码",
+      "note": "", "example": "组里越来越卷。"
+    },
+    {
+      "term": "躺平", "aliases": ["先躺为敬"], "form": "旧词新义",
+      "domain": "社会/网络", "register": "公共讨论", "timeliness": "2021至今",
+      "sense_literal": "平卧", "sense_slang": "低欲望不争的生活态度",
+      "note": "", "example": "卷不动, 我先躺平。"
+    },
+    {
+      "term": "画饼", "aliases": ["又画饼"], "form": "旧词新义",
+      "domain": "职场", "register": "口语", "timeliness": "2019至今",
+      "sense_literal": "绘制饼图或画饼食物", "sense_slang": "开空头承诺",
+      "note": "", "example": "老板又画饼。"
+    },
+    {
+      "term": "甩锅", "aliases": ["纯纯甩锅"], "form": "旧词新义",
+      "domain": "职场", "register": "口语", "timeliness": "2018至今",
+      "sense_literal": "甩出锅(炊事动作)", "sense_slang": "推卸责任",
+      "note": "", "example": "出问题就甩锅。"
+    },
+    {
+      "term": "肝", "aliases": ["肝了一晚上"], "form": "旧词新义",
+      "domain": "游戏/网络", "register": "口语", "timeliness": "2019至今",
+      "sense_literal": "肝脏", "sense_slang": "熬夜死磕(肝游戏肝论文)",
+      "note": "医学语境仍是本义", "example": "肝了一晚上论文。"
+    },
+    {
+      "term": "氪金", "aliases": [], "form": "新造词",
+      "domain": "游戏", "register": "口语", "timeliness": "2017至今",
+      "sense_literal": "氪(气体)加金", "sense_slang": "游戏内充值",
+      "note": "", "example": "氪金抽卡真香。"
+    },
+    {
+      "term": "破防", "aliases": [], "form": "旧词新义",
+      "domain": "游戏/网络", "register": "口语", "timeliness": "2021至今",
+      "sense_literal": "打破防御(游戏术语)", "sense_slang": "心理防线被击破",
+      "note": "", "example": "这一幕直接让我破防。"
+    },
+    {
+      "term": "红温", "aliases": [], "form": "旧词新义",
+      "domain": "网络", "register": "口语", "timeliness": "2023至今",
+      "sense_literal": "温度升高发烧脸红", "sense_slang": "气到脸红急眼",
+      "note": "", "example": "一句话让他红温。"
+    },
+    {
+      "term": "抽象", "aliases": ["太抽象了", "抽象活"], "form": "旧词新义",
+      "domain": "网络", "register": "口语", "timeliness": "2022至今",
+      "sense_literal": "抽象(哲学艺术)", "sense_slang": "荒诞难绷的搞笑风格",
+      "note": "学术语境仍是本义", "example": "这视频太抽象了。"
+    },
+    {
+      "term": "显眼包", "aliases": [], "form": "比喻",
+      "domain": "网络", "register": "口语", "timeliness": "2023至今",
+      "sense_literal": "显眼的包", "sense_slang": "爱出风头逗趣的人",
+      "note": "", "example": "同事是年会显眼包。"
+    },
+    {
+      "term": "那咋了", "aliases": [], "form": "句式梗",
+      "domain": "网络", "register": "口语", "timeliness": "2023至今",
+      "sense_literal": "那怎么了", "sense_slang": "摆烂式反问, 不以为然",
+      "note": "", "example": "那咋了? 我就迟到了。"
+    },
+    {
+      "term": "city不city", "aliases": [], "form": "混合",
+      "domain": "网络", "register": "口语", "timeliness": "2024至今",
+      "sense_literal": "城市洋不洋气", "sense_slang": "洋气摩登与否(调侃)",
+      "note": "中英混搭句式, 词形切分为 city不/不city", "example": "city不city啊, 这绿化。"
+    },
+    {
+      "term": "人设", "aliases": ["人设崩了"], "form": "旧词新义",
+      "domain": "娱乐/网络", "register": "口语", "timeliness": "2018至今",
+      "sense_literal": "人物设定(创作)", "sense_slang": "公众人物对外形象",
+      "note": "", "example": "他的人设崩了。"
+    },
+    {
+      "term": "种草", "aliases": ["被种草"], "form": "旧词新义",
+      "domain": "消费/网络", "register": "口语", "timeliness": "2018至今",
+      "sense_literal": "种植草", "sense_slang": "被推荐而心生购买欲",
+      "note": "", "example": "被种草了这个键盘。"
+    },
+    {
+      "term": "拔草", "aliases": ["先拔草"], "form": "旧词新义",
+      "domain": "消费/网络", "register": "口语", "timeliness": "2018至今",
+      "sense_literal": "拔除草", "sense_slang": "购买心动物, 也指放弃念头",
+      "note": "", "example": "双十一先拔草再吃土。"
+    },
+    {
+      "term": "塌房", "aliases": [], "form": "比喻",
+      "domain": "娱乐", "register": "口语", "timeliness": "2021至今",
+      "sense_literal": "房屋倒塌", "sense_slang": "偶像失德形象崩塌",
+      "note": "", "example": "idol塌房了。"
+    },
+    {
+      "term": "996", "aliases": [], "form": "数字",
+      "domain": "职场", "register": "公共讨论", "timeliness": "2019至今",
+      "sense_literal": "早9点上班晚9点下班每周6天", "sense_slang": "加班工作制代称",
+      "note": "", "example": "996这种福报论没人信了。"
+    },
+    {
+      "term": "终末地", "aliases": ["zmd"], "form": "缩写",
+      "domain": "游戏(群内)", "register": "群内口语", "timeliness": "2024至今",
+      "sense_literal": "终点/末端之地(字面义)", "sense_slang": "群内指游戏《明日方舟：终末地》, 常缩写为 zmd",
+      "note": "群作用域活案例: 只在 100000001 群注入, 不污染其他群(例句取自真实群聊)",
+      "scope": "group:100000001",
+      "example": "我zmd卡死了"
+    }
+  ]
+}
