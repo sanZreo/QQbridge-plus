@@ -100,6 +100,11 @@ export function normalizeSlangEntry(raw) {
         : ev))
       : [],
     lastInferenceCount: Math.max(0, Number(entry.lastInferenceCount) || 0),
+    // 最近一次「深度研究」跑过的时间（ISO，空=从未研究）。
+    // 与 lastInferenceCount 的区别：后者只在研究得出确定结论（confirmed=true）时才写，
+    // 这个字段只要这批研究真的跑完就写——用于区分「研究过但没结论」和「排都没排过」。
+    // 控制台的候选进度统计依赖它（跨进程重启依然可信）。
+    researchAt: clip(entry.researchAt, 40),
     createdAt: String(entry.createdAt || nowIso()),
     updatedAt: String(entry.updatedAt || nowIso()),
   };

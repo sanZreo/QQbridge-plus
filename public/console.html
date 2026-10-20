@@ -2336,6 +2336,19 @@ button:active:not(:disabled) {
       </div>
       <span class="meta" id="slangMsg"></span>
 
+      <!-- 研究进度：/api/slang/research-status，每 4 秒轮询一次（仅在本页可见时） -->
+      <div id="slangResearchBar" style="display:none;margin:10px 0 0;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--surface-subtle)">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <b id="slangResearchTitle" style="color:var(--text-strong);font-weight:600">研究进度</b>
+          <span id="slangResearchNums" class="meta"></span>
+          <span id="slangResearchEta" class="meta"></span>
+        </div>
+        <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:7px 0 5px">
+          <div id="slangResearchFill" style="height:100%;width:0;background:var(--accent);transition:width .4s ease"></div>
+        </div>
+        <div id="slangResearchSub" class="meta"></div>
+      </div>
+
       <!-- 候选词面板 -->
       <div class="slang-panel active" id="slangPanelCandidate">
         <div class="row" style="margin-top:8px">
@@ -4215,6 +4228,11 @@ document.getElementById('sStateIdle').addEventListener('click', () => setSocialP
 let slangEntriesCache = [];
 let slangSelected = new Set();
 let slangActiveTab = 'candidate';
+// 研究进度（/api/slang/research-status 轮询结果）
+let slangResearchingSet = new Set();   // 正在研究中的候选 id，用于行内角标
+let slangResearchState = { running: false, progress: {}, pool: {}, researchingIds: [] };
+let slangResearchLastDone = -1;        // 上一轮的已完成条数，用来判断"是否有推进"
+let slangResearchTimer = null;
 let slangModalId = null;
 let slangModalMode = 'confirm'; // confirm | edit
 
@@ -4295,7 +4313,19 @@ function renderSlangPanel() {
   let html = `<div class="meta" style="padding:6px 8px">共 ${filtered.length} 条，显示 ${shown.length} 条（可滚动查找）${triageNote}</div>`;
   html += '<table><tr><th>选择</th><th>词条</th><th>次数</th><th>来源</th><th>含义 / 用法 / 示例</th><th>参考来源</th><th>语境证据</th><th>操作</th></tr>';
   for (const e of shown) {
-    const meaning = e.meaning ? esc(e.meaning) : (status === 'candidate' ? '<span class="meta">待研究</span>' : '<span class="meta">无</span>');
+    // 候选的「含义」有三种状态，别都写成"待研究"：
+    // 已研究出结论 / 研究过但没结论（可以再研究或直接人工判断）/ 从没研究过
+    const meaning = e.meaning
+      ? esc(e.meaning)
+      : status === 'candidate'
+        ? (e.researchAt ? '<span class="meta">研究过，暂无结论</span>' : '<span class="meta">待研究</span>')
+        : '<span class="meta">无</span>';
+    const researchBadge = status !== 'candidate' ? ''
+      : slangResearchingSet.has(e.id)
+        ? '<br><span class="meta" style="color:var(--accent)">🔬 研究中…</span>'
+        : e.researchAt
+          ? `<br><span class="meta">上次研究 ${esc(String(e.researchAt).slice(5, 16).replace('T', ' '))}</span>`
+          : '';
     const checked = slangSelected.has(e.id) ? ' checked' : '';
     const actions = [];
     if (status === 'candidate') {
@@ -4310,7 +4340,7 @@ function renderSlangPanel() {
     actions.push(`<button class="small danger" data-slang-del="${esc(e.id)}">删</button>`);
     html += `<tr>
       <td><input type="checkbox" data-slang-select="${esc(e.id)}"${checked}></td>
-      <td><b>${esc(e.content)}</b><br><span class="${slangStatusClass(status)}">${slangStatusLabel(status)}</span></td>
+      <td><b>${esc(e.content)}</b><br><span class="${slangStatusClass(status)}">${slangStatusLabel(status)}</span>${researchBadge}</td>
       <td>${esc(e.count)}</td>
       <td>${esc(slangSourceLabel(e))}</td>
       <td>${meaning}${e.usage ? '<br><span class="meta">用法：' + esc(e.usage) + '</span>' : ''}${e.example ? '<br><span class="meta">例：' + esc(e.example) + '</span>' : ''}${e.risk ? '<br><span class="meta">风险：' + esc(e.risk) + '</span>' : ''}</td>
@@ -4362,6 +4392,81 @@ async function refreshSlang() {
     if (box) box.innerHTML = '<span class="meta">加载失败</span>';
   }
 }
+
+// ── 黑话研究进度 ────────────────────────────────────────────────────────
+// 两个口径分开看，别混：
+//   · 本轮任务：进度条 + 第几批/共几批 + 预计剩余（内存态，重启归零）
+//   · 候选池：已研究/未研究（来自词条 researchAt，跨重启可信）
+function fmtSlangDuration(sec) {
+  if (sec === null || sec === undefined || Number.isNaN(sec)) return '—';
+  if (sec < 60) return sec + ' 秒';
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m < 60) return m + ' 分' + (s ? s + ' 秒' : '');
+  const h = Math.floor(m / 60);
+  return h + ' 小时' + (m % 60 ? (m % 60) + ' 分' : '');
+}
+
+function renderSlangResearchStatus() {
+  const bar = document.getElementById('slangResearchBar');
+  if (!bar) return;
+  const p = slangResearchState.progress || {};
+  const pool = slangResearchState.pool || {};
+  const running = Boolean(slangResearchState.running);
+  const pct = p.total ? Math.min(100, Math.round((p.done || 0) / p.total * 100)) : 0;
+  const fill = document.getElementById('slangResearchFill');
+  bar.style.display = '';
+  if (running) {
+    document.getElementById('slangResearchTitle').textContent = '🔬 深度研究进行中';
+    document.getElementById('slangResearchNums').textContent =
+      `已完成 ${p.done || 0}/${p.total || 0} 条（${pct}%）· 第 ${p.batchIndex || 0}/${p.batchTotal || 0} 批 · 每批 ${p.batchSize || '?'} 条`;
+    document.getElementById('slangResearchEta').textContent =
+      `已用 ${fmtSlangDuration(p.elapsedSec)}` + (p.etaSec != null ? ` · 预计还需 ${fmtSlangDuration(p.etaSec)}` : '');
+    fill.style.width = pct + '%';
+    fill.style.background = 'var(--accent)';
+  } else {
+    const poolPct = pool.candidate ? Math.round((pool.researched || 0) / pool.candidate * 100) : 0;
+    document.getElementById('slangResearchTitle').textContent = '🔬 研究状态';
+    document.getElementById('slangResearchNums').textContent =
+      `候选 ${pool.candidate || 0} 条：已研究 ${pool.researched || 0} · 未研究 ${pool.neverResearched || 0} · 已有含义 ${pool.withMeaning || 0}`;
+    document.getElementById('slangResearchEta').textContent = p.finishedAt
+      ? `上轮 ${p.done || 0}/${p.total || 0} 条 · ${new Date(p.finishedAt).toLocaleTimeString('zh-CN', { hour12: false })} 结束`
+      : '';
+    fill.style.width = poolPct + '%';
+    fill.style.background = 'var(--muted-soft)';
+  }
+  const bits = [];
+  if (running) bits.push(`写入解释 ${p.written || 0} 条`);
+  if (p.failedBatches) bits.push(`失败批次 ${p.failedBatches}`);
+  if (p.lastError) bits.push(`最近错误：${p.lastError}`);
+  if (pool.cap) bits.push(`词库 ${pool.total || 0}/${pool.cap}${pool.total >= pool.cap ? '（已满，需先清理）' : ''}`);
+  if (!running && !bits.length) bits.push('勾选候选后点「批量送 DSH 深度研究」，或点「研究全部候选」');
+  document.getElementById('slangResearchSub').textContent = bits.join(' · ');
+  slangResearchingSet = new Set(slangResearchState.researchingIds || []);
+}
+
+async function refreshSlangResearchStatus() {
+  const section = document.getElementById('section-slang');
+  if (!section || section.hidden) return; // 不在黑话页就不轮询，别白耗请求
+  try {
+    slangResearchState = await api('/api/slang/research-status');
+    renderSlangResearchStatus();
+    const done = slangResearchState.progress?.done ?? 0;
+    if (done !== slangResearchLastDone) {
+      slangResearchLastDone = done;
+      // 研究推进了：刷新词条列表，新写入的含义当场可见（每完成一批才动一次，不刷屏）
+      refreshSlang();
+    }
+    if (!slangResearchState.running) renderSlangPanel(); // 收尾时清掉「研究中」角标
+  } catch (e) { /* 短暂断连不打扰用户 */ }
+}
+
+function startSlangResearchPolling() {
+  if (slangResearchTimer) return;
+  refreshSlangResearchStatus();
+  slangResearchTimer = setInterval(refreshSlangResearchStatus, 4000);
+}
+startSlangResearchPolling();
 
 function openSlangModal(id, mode) {
   const e = slangEntriesCache.find((x) => x.id === id);
@@ -4428,9 +4533,9 @@ document.getElementById('slangBatchResearch').addEventListener('click', async ()
   if (!ids.length) { alert('请先勾选要研究的候选词'); return; }
   const r = await api('/api/slang/research', 'POST', { ids });
   setSlangMsg(r.ok
-    ? `✅ 已送 ${r.count} 条候选到 DSH 深度联网研究，分 ${r.batches} 批（每批 ${r.batchSize} 条）推进，预计约 ${r.etaMinutes} 分钟。每批跑完立即写回，可随时刷新查看进度。`
+    ? `✅ 已送 ${r.count} 条候选到 DSH 深度联网研究，分 ${r.batches} 批（每批 ${r.batchSize} 条）推进，预计约 ${r.etaMinutes} 分钟。进度见上方进度条（每 4 秒自动刷新）。`
     : ('❌ ' + (r.error || '失败')), r.ok);
-  if (r.ok) refreshSlang();
+  if (r.ok) { refreshSlang(); refreshSlangResearchStatus(); }
 });
 document.getElementById('slangBatchConfirm').addEventListener('click', async () => {
   const ids = selectedIdsForStatus('candidate');
@@ -4529,8 +4634,9 @@ document.getElementById('slangExtract').addEventListener('click', async () => {
 document.getElementById('slangResearch').addEventListener('click', async () => {
   const r = await api('/api/slang/research', 'POST', {});
   setSlangMsg(r.ok
-    ? (`✅ 已触发研究 ${r.count} 条，分 ${r.batches} 批（每批 ${r.batchSize} 条），预计约 ${r.etaMinutes} 分钟。每批跑完立即写回，可随时刷新查看进度。`)
+    ? (`✅ 已触发研究 ${r.count} 条，分 ${r.batches} 批（每批 ${r.batchSize} 条），预计约 ${r.etaMinutes} 分钟。进度见上方进度条。`)
     : ('❌ ' + (r.error || '失败')), r.ok);
+  if (r.ok) { refreshSlang(); refreshSlangResearchStatus(); }
 });
 function loadSlangConfig() {
   api('/api/slang').then(r => {
@@ -4658,6 +4764,8 @@ function setConsolePage(page, { updateHash = true, focus = false, target = '' } 
   closeConsoleSearch();
   // 语音库按需加载：进入二代仿真页时才探测（避免每次开控制台都压网关）。
   if (page === 'social-v2' && typeof loadVoiceLibrary === 'function') loadVoiceLibrary();
+  // 研究进度：切进黑话页立刻拉一次，别等轮询的下一个 4 秒。
+  if (page === 'slang' && typeof refreshSlangResearchStatus === 'function') refreshSlangResearchStatus();
   if (focus) {
     document.getElementById('mainContent').focus({ preventScroll: true });
     document.getElementById(target || 'mainContent')?.scrollIntoView({ block: 'start', behavior: 'instant' });

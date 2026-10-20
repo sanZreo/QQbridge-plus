@@ -1310,6 +1310,13 @@ async function main() {
   const slangSubmitTimes = new Map();   // key -> [timestamp]：AI 提交黑话候选限频（内存态）
   const feedbackTimes = new Map();      // key -> [timestamp]：AI 反馈限频（内存态）
   const slangResearchingIds = new Set(); // 正在研究中的候选 id，防止重复排队
+  // 研究任务进度（内存态，供控制台轮询）。"跑过多少条"的持久事实以词条 researchAt 为准，
+  // 这里只记录当前这一轮的批次数、耗时与失败信息——重启后自动归零，不会假装还有任务在跑。
+  const slangResearchProgress = {
+    running: false, trigger: '', total: 0, done: 0, written: 0,
+    batchIndex: 0, batchTotal: 0, batchSize: 0, failedBatches: 0,
+    startedAt: 0, updatedAt: 0, finishedAt: 0, lastError: ''
+  };
   const learnerSessions = new Set();    // sessionId -> 学习会话（不映射 QQ，不发送）
   const learnerCollectors = new Map();  // sessionId -> turn collector
   const learnerWaiters = new Map();     // sessionId -> [{resolve,reject,timer}]
@@ -2097,7 +2104,7 @@ async function main() {
     }
   }
 
-  async function runSlangResearch(candidates) {
+  async function runSlangResearch(candidates, trigger = 'auto') {
     if (!candidates || !candidates.length) { log('黑话研究：入参为空，跳过'); return; }
     if (cfg.slang?.enabled === false) { log('黑话研究：slang.enabled=false，跳过'); return; }
     if (!dshReady) { log('黑话研究：DSH 未就绪，跳过（任务丢弃，未入队等待）'); return; }
@@ -2105,6 +2112,12 @@ async function main() {
     const targets = candidates.filter((e) => e && !slangResearchingIds.has(e.id));
     if (!targets.length) { log('黑话研究：候选均已在研究队列中，跳过'); return; }
     for (const e of targets) slangResearchingIds.add(e.id);
+    // 标记本轮进度起点：控制台 4s 轮询一次这个对象就能画出进度条。
+    Object.assign(slangResearchProgress, {
+      running: true, trigger, total: targets.length, done: 0, written: 0,
+      batchIndex: 0, batchTotal: 0, batchSize: 0, failedBatches: 0,
+      startedAt: Date.now(), updatedAt: Date.now(), finishedAt: 0, lastError: ''
+    });
     log(`黑话研究：开始处理 ${targets.length} 条候选`);
     let sessionId;
     try {
@@ -2117,11 +2130,15 @@ async function main() {
     // 切批推进：单批必须能在 waitLearnerTurn 的超时内跑完（见 RESEARCH_BATCH_SIZE 注释）。
     const batchSize = Math.min(20, Math.max(1, Math.round(Number(cfg.slang?.researchBatchSize) || RESEARCH_BATCH_SIZE)));
     const batches = chunkCandidates(targets, batchSize);
+    slangResearchProgress.batchTotal = batches.length;
+    slangResearchProgress.batchSize = batchSize;
     let doneCount = 0;
     let failedBatches = 0;
     try {
       for (let i = 0; i < batches.length; i += 1) {
         const batch = batches[i];
+        slangResearchProgress.batchIndex = i + 1;
+        slangResearchProgress.updatedAt = Date.now();
         const promptText = buildResearchPrompt(batch);
         try {
           if (DIAG_SLANG) log(`[diag] 研究 prompt 即将发送 → ${sessionId.slice(-8)}，长度 ${promptText.length} 字符，本批 ${batch.length} 条`);
@@ -2134,6 +2151,10 @@ async function main() {
           }
           const output = await waitLearnerTurn(sessionId, learnerTurnTimeoutMs(batch.length));
           const results = parseResearchJson(output);
+          // 这批确实跑完了：无论有没有得出结论，都给批次内每个候选打上研究时间戳。
+          // 这样控制台能区分「研究过但没结论（可再研究或人工判断）」和「从没研究过」。
+          const stampedAt = new Date().toISOString();
+          for (const e of batch) e.researchAt = stampedAt;
           let updated = 0;
           for (const r of results) {
             const entry = slangEntries.find((e) => e.content === r.content);
@@ -2153,12 +2174,18 @@ async function main() {
           // 每批跑完立刻落盘：哪怕后面的批次全挂，前面已经花掉钱查到的东西也看得见。
           saveSlangStore();
           doneCount += batch.length;
+          slangResearchProgress.done = doneCount;
+          slangResearchProgress.written = (Number(slangResearchProgress.written) || 0) + updated;
+          slangResearchProgress.updatedAt = Date.now();
           log(`黑话研究：第 ${i + 1}/${batches.length} 批完成（本批 ${batch.length} 条，写入解释 ${updated} 条，累计 ${doneCount}/${targets.length}）`);
         } catch (error) {
           if (/会话|session|not found|404/i.test(String(error?.message ?? error))) {
             invalidateSlangLearnerSession();
           }
           failedBatches += 1;
+          slangResearchProgress.failedBatches = failedBatches;
+          slangResearchProgress.lastError = String(error?.message ?? error).slice(0, 200);
+          slangResearchProgress.updatedAt = Date.now();
           log(`黑话研究第 ${i + 1}/${batches.length} 批失败:`, error?.message ?? error);
         }
       }
@@ -2169,6 +2196,13 @@ async function main() {
       }
     } finally {
       for (const e of targets) slangResearchingIds.delete(e.id);
+      // 收尾：running 置 false，控制台进度条随之切换为「本轮结束」摘要。
+      slangResearchProgress.running = false;
+      slangResearchProgress.done = doneCount;
+      slangResearchProgress.failedBatches = failedBatches;
+      slangResearchProgress.finishedAt = Date.now();
+      slangResearchProgress.updatedAt = Date.now();
+      log(`黑话研究：本轮结束（完成 ${doneCount}/${slangResearchProgress.total} 条，失败批次 ${failedBatches}）`);
     }
   }
 
@@ -2231,6 +2265,9 @@ async function main() {
       source: e?.source ?? 'ai',
       // 别名/变体：让「yyds」与「永远的神」在查询与注入时互认。
       aliases: Array.isArray(e?.aliases) ? e.aliases.slice(0, 10) : [],
+      scope: e?.scope ?? 'general',
+      // 最近一次深度研究的时间（空=从未研究），控制台据此显示「待研究/已研究」。
+      researchAt: e?.researchAt ?? '',
       count: Number(e?.count) || 0,
       updatedAt: e?.updatedAt ?? ''
     };
@@ -2799,6 +2836,14 @@ async function main() {
    * @param {string} configured - config.json 里配置的 baseUrl（连不上时才扫描）。
    * @returns {Promise<string|null>} 形如 http://127.0.0.1:PORT，找不到返回 null。
    */
+  /**
+   * 曾经命中过的 DSH 端口（最近一次在最前）。
+   *
+   * 用途：DSH 重启后换端口时，优先试上次那个端口，命中即返回，
+   * 不必每次都把 9000~20000 整段扫一遍。必须在 discoverDshPort 之外声明：
+   * 它要跨多次调用保留状态，声明在函数体内每次都会重置。
+   */
+  const dshSeenPorts = new Set();
   async function discoverDshPort(configured) {
     const candidates = [];
     if (configured) candidates.push(configured);
@@ -2806,6 +2851,48 @@ async function main() {
     // 已见过的 DSH 端口优先（重连时不必再全扫），再补一段常见高位区间。
     for (const p of [...dshSeenPorts]) candidates.push(`http://127.0.0.1:${p}`);
     for (let p = 9000; p <= 20000; p += 1) candidates.push(`http://127.0.0.1:${p}`);
+    /**
+     * 探测单个候选端口是不是 DSH。
+     *
+     * 只看状态码是不够的：QQ 客户端（实测 9210）对它自己的 /api/* 也回 200，
+     * 于是扫描会在第一个 200 上停下来、把 QQ 误认成 DSH，之后所有 RPC
+     * 都发给了 QQ —— 表现为「桥接显示连上了但什么都没反应」。
+     * 这里改成同时看**状态码 + 响应内容**：
+     *   · 401 且 body 是纯文本 "unauthorized"（DSH 未带 Cookie 的正常应答）
+     *   · 200 且 body 是带 result/error/value 键的 JSON 信封（DSH 已带凭据）
+     * 其它本地服务（QQ 的裸 JWT、别家的 HTML/JSON）都会被排除。
+     */
+    const probeDsh = async (port) => {
+      try {
+        const r = await fetch(`http://127.0.0.1:${port}/api/settings/describe`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: '{}',
+          signal: AbortSignal.timeout(800)
+        });
+        const text = await r.text().catch(() => '');
+        if (r.status === 401) {
+          // DSH 的未鉴权应答就是纯文本 unauthorized；JWT 之类不算。
+          if (/unauthorized/i.test(text) && !/eyJ/.test(text)) return true;
+        } else if (r.status === 200) {
+          if (text.startsWith('{') && !/^\s*eyJ/.test(text)) {
+            try {
+              const parsed = JSON.parse(text);
+              if (parsed && typeof parsed === 'object'
+                && ('result' in parsed || 'error' in parsed || 'value' in parsed)) {
+                return true;
+              }
+            } catch {}
+          }
+        }
+      } catch {
+        // 空端口/非 HTTP 服务：不是 DSH。
+      }
+      return false;
+    };
+
+    // 先把「配置值 + 历史见过的端口」按顺序试掉：命中率最高，且能保证稳定优先。
+    const ports = [];
     const seen = new Set();
     for (const base of candidates) {
       const m = /:(\d+)$/.exec(base);
@@ -2815,21 +2902,29 @@ async function main() {
       if (port === consolePort) continue; // 别把自家控制台认成 DSH
       if (seen.has(port)) continue;
       seen.add(port);
-      try {
-        const r = await fetch(`${base}/api/settings/describe`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: '{}',
-          signal: AbortSignal.timeout(800)
-        });
-        // 401 = 是 DSH 且需要鉴权（正常状态）；200 = 已带有效凭据；两者都算命中。
-        if (r.status === 401 || r.status === 200) {
-          dshSeenPorts.add(port);
-          return base;
-        }
-      } catch {
-        // 空端口/非 HTTP 服务：继续找。
+      ports.push(port);
+    }
+    const preferred = ports.slice(0, 10);
+    const rest = ports.slice(10);
+    for (const port of preferred) {
+      if (await probeDsh(port)) {
+        dshSeenPorts.add(port);
+        return `http://127.0.0.1:${port}`;
       }
+    }
+    // 剩下的按批并发探测：11000 个端口串行要几分钟，并发 64 路约 1~2 秒。
+    // DSH 一旦被找到就立刻返回；同时记下最小命中端口，保证结果稳定（不会每次扫到不同端口）。
+    const CONCURRENCY = 64;
+    let bestPort = null;
+    for (let i = 0; i < rest.length && bestPort === null; i += CONCURRENCY) {
+      const batch = rest.slice(i, i + CONCURRENCY);
+      const hits = await Promise.all(batch.map(async (port) => ((await probeDsh(port)) ? port : null)));
+      const found = hits.filter((p) => p !== null);
+      if (found.length) bestPort = Math.min(...found);
+    }
+    if (bestPort !== null) {
+      dshSeenPorts.add(bestPort);
+      return `http://127.0.0.1:${bestPort}`;
     }
     return null;
   }
@@ -2844,13 +2939,27 @@ async function main() {
       // 免得整个黑话学习/QQ 转发链路静默停摆（见 discoverDshPort 的注释）。
       const found = await discoverDshPort(cfg.dsh.baseUrl);
       if (found && found !== api.baseUrl) {
-        log(`⚠️ DSH 端口已变化：${api.baseUrl} → ${found}，已自动切换（建议把 config.json 的 dsh.baseUrl 改为 ${found} 以免每次重启都扫）`);
+        log(`⚠️ DSH 端口已变化：${api.baseUrl} → ${found}，已自动切换`);
         api.baseUrl = found;
         api.invalidateAuth();
         try {
           await api.settings.describe({});
           ok = true;
         } catch {}
+        // 找到就写回 config.json：下次启动直接命中，不必再全量扫描。
+        // 写失败不影响本次运行，只是下次还要再扫一遍。
+        if (ok) {
+          const prev = cfg.dsh.baseUrl;
+          cfg.dsh.baseUrl = found;
+          try {
+            const file = readConfigObject(path.join(ROOT, 'config.json'));
+            file.dsh = { ...(file.dsh ?? {}), baseUrl: found };
+            atomicWriteJson(path.join(ROOT, 'config.json'), file);
+            log(`已把新端口写回 config.json（${prev} → ${found}）`);
+          } catch (error) {
+            log('写回 config.json 失败（不影响本次运行）:', error?.message ?? error);
+          }
+        }
       }
     }
     if (ok) {
@@ -3853,6 +3962,53 @@ async function main() {
           sendJson({ entries: list, config: cfg.slang });
           return;
         }
+        // 研究进度：控制台轮询用。
+        // · running/progress 是**本轮任务**的内存态（重启即归零，不会假装还在跑）；
+        // · pool.researched / neverResearched 来自词条 researchAt，是跨重启可信的持久事实。
+        if (req.method === 'GET' && url.pathname === '/api/slang/research-status') {
+          const p = slangResearchProgress;
+          const now = Date.now();
+          const cands = slangEntries.filter((e) => e.status === SLANG_STATUS.CANDIDATE);
+          const researched = cands.filter((e) => e.researchAt).length;
+          const elapsedSec = p.running && p.startedAt ? Math.max(0, Math.round((now - p.startedAt) / 1000)) : 0;
+          // 线性外推的预计剩余时间：只做参考，批次之间耗时差异很大（联网研究的批更慢）。
+          const etaSec = p.running && p.done > 0 && p.total > p.done
+            ? Math.round((elapsedSec / p.done) * (p.total - p.done))
+            : null;
+          sendJson({
+            ok: true,
+            running: Boolean(p.running),
+            trigger: p.trigger || '',
+            inQueue: slangResearchingIds.size,
+            researchingIds: [...slangResearchingIds].slice(0, 300),
+            progress: {
+              total: p.total,
+              done: p.done,
+              written: p.written,
+              batchIndex: p.batchIndex,
+              batchTotal: p.batchTotal,
+              batchSize: p.batchSize,
+              failedBatches: p.failedBatches,
+              startedAt: p.startedAt,
+              updatedAt: p.updatedAt,
+              finishedAt: p.finishedAt,
+              lastError: p.lastError || '',
+              elapsedSec,
+              etaSec
+            },
+            pool: {
+              total: slangEntries.length,
+              candidate: cands.length,
+              confirmed: slangEntries.filter((e) => e.status === SLANG_STATUS.CONFIRMED).length,
+              rejected: slangEntries.filter((e) => e.status === SLANG_STATUS.REJECTED).length,
+              researched,
+              neverResearched: cands.length - researched,
+              withMeaning: cands.filter((e) => e.meaning).length,
+              cap: SLANG_MAX_ENTRIES
+            }
+          });
+          return;
+        }
         if (req.method === 'POST' && url.pathname === '/api/slang') {
           const body = await readBody();
           const content = String(body.content ?? '').trim();
@@ -4068,7 +4224,7 @@ async function main() {
           const runnable = candidates.filter((e) => !queued.has(e.id));
           if (!runnable.length) { sendJson({ ok: false, error: '这些候选已在研究队列中，请稍后刷新查看进度' }, 409); return; }
           const batchSize = Math.min(20, Math.max(1, Math.round(Number(cfg.slang?.researchBatchSize) || RESEARCH_BATCH_SIZE)));
-          queueSlangTask(() => runSlangResearch(runnable));
+          queueSlangTask(() => runSlangResearch(runnable, ids.length ? 'selected' : 'all'));
           sendJson({
             ok: true,
             count: runnable.length,
@@ -11397,7 +11553,10 @@ async function main() {
       items.push({ promptText, media: mediaList });
       queued.set(key, items);
       const now = Date.now();
-      if ((queuedHintAt.get(key) ?? 0) + QUEUE_HINT_COOLDOWN_MS < now) {
+      // 群聊不发排队提示（2026-10-20 起）：DSH 重启期间在群里刷这条太吵。
+      // 私聊仍保留 30s 冷却的一次性提示；群里的入队/恢复后补投逻辑不受影响。
+      const queueHintAllowed = !String(key).startsWith('group:');
+      if (queueHintAllowed && (queuedHintAt.get(key) ?? 0) + QUEUE_HINT_COOLDOWN_MS < now) {
         queuedHintAt.set(key, now);
         await sendToQQ(key, '⏳ 系统服务重启中，消息已排队，恢复后自动处理。');
       }
